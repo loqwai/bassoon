@@ -26,6 +26,7 @@ void setup() {
   updateLocalAddress();  
   setupScreen();
   LoRa.onReceive(onReceive);
+  LoRa.receive();
 }
 
 void loop() {
@@ -68,22 +69,21 @@ void renderDashboard() {
 
 void sendMessage(String outgoing) {
   Serial.println("Imma bout to yell about myself");
-  auto beginSend = millis();
   LoRa.beginPacket();
   LoRa.print(addressToString(id));
   LoRa.endPacket();
-  auto elapsed = millis() - beginSend;
-  Serial.printf("Sending message took: %i millis\n", (int)elapsed);
-  interval = elapsed * 2;
 }
 
-void loraStuff()
-{
+void loraStuff() {
   if (millis() - lastSendTime < interval) return;
+  auto beginSend = millis();
   sendMessage(String((char*) id));
   Serial.println("Sending " + addressToString(id));
   lastSendTime = millis();            // timestamp the message
-  interval = random(2000) + 1000;    // 2-3 seconds
+  auto elapsed = millis() - beginSend;
+  Serial.printf("Sending message took: %i millis\n", (int)elapsed);
+  interval = elapsed + random(elapsed);
+  LoRa.receive();
 }
 
 void printScreen(String msg) {
@@ -91,6 +91,7 @@ void printScreen(String msg) {
 }
 
 void onReceive(int packetSize) {
+  Serial.printf("onReceive(%i)\n", packetSize);
   digitalWrite(LED, HIGH);
   if (packetSize == 0) return;
 
