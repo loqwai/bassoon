@@ -1,18 +1,19 @@
 #include "heltec.h"
 #include <set>
+#include <list>
 #include <string>
 #include <stdio.h>
 using namespace std;
 
 #define BAND 868E6 //you can se\t band here directly,e.g. 868E6,915E6
 
-uint8_t id[6];
+list<uint8_t> id;
 String lastMsgSent;
 String lastMsgRcvd;
 unsigned long lastSendTime = 0;
 int interval = 1000;
 
-set<String> myFriends;
+set<list<uint8_t>> myFriends;
 
 void updateLocalAddress();
 void setupScreen();
@@ -35,12 +36,32 @@ void loop() {
 }
 
 void updateLocalAddress() {
-  esp_efuse_mac_get_default(id);
+  uint8_t rawId[6];
+  esp_efuse_mac_get_default(rawId);
+  
+  for (auto c : rawId) {
+    id.push_back(c);
+  }
 }
 
-String addressToString(uint8_t* addr) {
+String addressToString(list<uint8_t> addr) {
+  uint8_t chars[addr.size()];
+
+  int i = 0;
+  for (auto c : addr) {
+    chars[i] = c;
+    i++;
+  }
+
+  return String((char*) chars);
+}
+
+String addressToFormattedString(list<uint8_t> addr) {
   char str[18] = {}; 
-  sprintf(str, "%X:%X:%X:%X:%X:%X", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+
+  auto chars = addressToString(addr);
+
+  sprintf(str, "%X:%X:%X:%X:%X:%X", chars[0], chars[1], chars[2], chars[3], chars[4], chars[5]);
   return String(str);
 }
 
@@ -55,12 +76,12 @@ void renderDashboard() {
   Heltec.display->clear();
   Heltec.display->setTextAlignment(TEXT_ALIGN_LEFT);
   Heltec.display->setFont(ArialMT_Plain_10);
-  Heltec.display->drawStringMaxWidth(0, 0, 128, "id: " + addressToString(id));
+  Heltec.display->drawStringMaxWidth(0, 0, 128, "id: " + addressToFormattedString(id));
 
   String friendsBrag = "";
 
   for (auto f : myFriends) {
-    friendsBrag += ", " + f;
+    friendsBrag += ", " + addressToFormattedString(f);
   }
 
   Heltec.display->drawStringMaxWidth(0, 10, 128, "friends: " + friendsBrag);
@@ -70,15 +91,15 @@ void renderDashboard() {
 void sendMessage(String outgoing) {
   Serial.println("Imma bout to yell about myself");
   LoRa.beginPacket();
-  LoRa.print(addressToString(id));
+  LoRa.print(addressToFormattedString(id));
   LoRa.endPacket();
 }
 
 void loraStuff() {
   if (millis() - lastSendTime < interval) return;
   auto beginSend = millis();
-  sendMessage(String((char*) id));
-  Serial.println("Sending " + addressToString(id));
+  sendMessage(addressToString(id));
+  Serial.println("Sending " + addressToFormattedString(id));
   lastSendTime = millis();            // timestamp the message
   auto elapsed = millis() - beginSend;
   Serial.printf("Sending message took: %i millis\n", (int)elapsed);
@@ -95,18 +116,12 @@ void onReceive(int packetSize) {
   digitalWrite(LED, HIGH);
   if (packetSize == 0) return;
 
-  byte incomingLength = LoRa.read();
-  String incoming = "";
+  list<uint8_t> incoming = {};
 
   while (LoRa.available()) {
-    incoming += (char)LoRa.read();
+    incoming.push_back(LoRa.read());
   }
 
-  if (incomingLength != incoming.length()) {
-    printScreen("error: message length does not match length\n" + incoming);
-    return;
-  }
-  Serial.println("Heard from a friend: " + incoming);
+  Serial.println("Heard from a friend: " + addressToFormattedString(incoming));
   myFriends.insert(incoming);
 }
-
