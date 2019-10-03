@@ -1,11 +1,12 @@
 #include "heltec.h"
 #include <set>
-
+#include <string>
+#include <stdio.h>
 using namespace std;
 
 #define BAND 868E6 //you can se\t band here directly,e.g. 868E6,915E6
 
-String id;
+uint8_t id[6];
 String lastMsgSent;
 String lastMsgRcvd;
 unsigned long lastSendTime = 0;
@@ -13,7 +14,7 @@ int interval = 1000;
 
 set<String> myFriends;
 
-String getLocalAddress();
+void updateLocalAddress();
 void setupScreen();
 void renderDashboard();
 void loraStuff();
@@ -22,7 +23,7 @@ void onReceive(int packetSize);
 void setup() {
   Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
 
-  id = getLocalAddress();  
+  updateLocalAddress();  
   setupScreen();
   LoRa.onReceive(onReceive);
 }
@@ -32,15 +33,14 @@ void loop() {
   loraStuff();
 }
 
-String getLocalAddress()
-{
-  uint8_t out[6];
-  esp_efuse_mac_get_default(out);
-  String mac = "";
-  for (int i = 0; i < 6; i++) {
-    mac += (char)out[i];
-  }
-  return mac;
+void updateLocalAddress() {
+  esp_efuse_mac_get_default(id);
+}
+
+String addressToString(uint8_t* addr) {
+  char str[18] = {}; 
+  sprintf(str, "%X:%X:%X:%X:%X:%X", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+  return String(str);
 }
 
 void setupScreen() {
@@ -54,7 +54,7 @@ void renderDashboard() {
   Heltec.display->clear();
   Heltec.display->setTextAlignment(TEXT_ALIGN_LEFT);
   Heltec.display->setFont(ArialMT_Plain_10);
-  Heltec.display->drawStringMaxWidth(0, 0, 128, "id: " + id);
+  Heltec.display->drawStringMaxWidth(0, 0, 128, "id: " + addressToString(id));
 
   String friendsBrag = "";
 
@@ -70,17 +70,18 @@ void sendMessage(String outgoing) {
   Serial.println("Imma bout to yell about myself");
   auto beginSend = millis();
   LoRa.beginPacket();
-  LoRa.print(id);
+  LoRa.print(addressToString(id));
   LoRa.endPacket();
   auto elapsed = millis() - beginSend;
-  Serial.printf("Sending message took: %i millis", (int)elapsed);
+  Serial.printf("Sending message took: %i millis\n", (int)elapsed);
+  interval = elapsed * 2;
 }
 
 void loraStuff()
 {
   if (millis() - lastSendTime < interval) return;
-  sendMessage(id);
-  Serial.println("Sending " + id);
+  sendMessage(String((char*) id));
+  Serial.println("Sending " + addressToString(id));
   lastSendTime = millis();            // timestamp the message
   interval = random(2000) + 1000;    // 2-3 seconds
 }
