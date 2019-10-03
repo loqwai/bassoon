@@ -5,15 +5,15 @@ using namespace std;
 
 #define BAND 868E6 //you can se\t band here directly,e.g. 868E6,915E6
 
-String id;
+uint8_t id[6];
 String lastMsgSent;
 String lastMsgRcvd;
 unsigned long lastSendTime = 0;
 int interval = 1000;
 
-set<String> myFriends;
+set<uint8_t*> myFriends;
 
-String getLocalAddress();
+void updateLocalAddress();
 void setupScreen();
 void renderDashboard();
 void loraStuff();
@@ -22,7 +22,7 @@ void onReceive(int packetSize);
 void setup() {
   Heltec.begin(true /*DisplayEnable Enable*/, true /*Heltec.LoRa Disable*/, true /*Serial Enable*/, true /*PABOOST Enable*/, BAND /*long BAND*/);
 
-  id = getLocalAddress();  
+  getLocalAddress();  
   setupScreen();
   LoRa.onReceive(onReceive);
 }
@@ -32,15 +32,10 @@ void loop() {
   loraStuff();
 }
 
-String getLocalAddress()
-{
+void updateLocalAddress() {
   uint8_t out[6];
   esp_efuse_mac_get_default(out);
-  String mac = "";
-  for (int i = 0; i < 6; i++) {
-    mac += (char)out[i];
-  }
-  return mac;
+  return out;
 }
 
 void setupScreen() {
@@ -104,7 +99,7 @@ void onReceive(int packetSize) {
     printScreen("error: message length does not match length\n" + incoming);
     return;
   }
-  Serial.println("Heard from a friend: " + incoming);
+  Serial.println("Heard from a friend: %s" + (char*)incoming);
   myFriends.insert(incoming);
 }
 
