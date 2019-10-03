@@ -61,7 +61,7 @@ String addressToFormattedString(list<uint8_t> addr) {
 
   auto chars = addressToString(addr);
 
-  sprintf(str, "%X:%X:%X:%X:%X:%X", chars[0], chars[1], chars[2], chars[3], chars[4], chars[5]);
+  sprintf(str, "%02X:%02X:%02X:%02X:%02X:%02X", chars[0], chars[1], chars[2], chars[3], chars[4], chars[5]);
   return String(str);
 }
 
@@ -81,7 +81,7 @@ void renderDashboard() {
   String friendsBrag = "";
 
   for (auto f : myFriends) {
-    friendsBrag += ", " + addressToFormattedString(f);
+    friendsBrag += " " + addressToFormattedString(f);
   }
 
   Heltec.display->drawStringMaxWidth(0, 10, 128, "friends: " + friendsBrag);
@@ -121,6 +121,7 @@ void onReceive(int packetSize) {
   while (LoRa.available()) {
     incoming.push_back(LoRa.read());
   }
+  digitalWrite(LED, LOW);
 
   Serial.println("Heard from a friend: " + addressToFormattedString(incoming));
   myFriends.insert(incoming);
